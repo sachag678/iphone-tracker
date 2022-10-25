@@ -30,9 +30,7 @@ generate_score(df_last_week, *scores)
 
 df_nlargest = df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']]
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-app = Dash(__name__, external_stylesheets=external_stylesheets, update_title=None)
+app = Dash(__name__, update_title=None)
 
 app.layout = html.Div([
     html.Div([
