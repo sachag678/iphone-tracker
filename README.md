@@ -2,6 +2,8 @@
 
 Contains the UI, Data Gathering and Data Processing code for the project.
 
+Here is a blog post detailing the design and engineering process: [Blog](https://medium.com/@truble678/how-i-found-the-best-used-iphone-on-kijiji-ac8de854afa4)
+
 ## Data Gathering
 
 Gets and saves html pages from kijiji based on the search term. Saves the pages in folders sorted by search term and date.
