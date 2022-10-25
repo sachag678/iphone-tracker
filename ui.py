@@ -15,6 +15,7 @@ scores = (0.5, 0.2, 0.2, 0.1)
 path = '/Users/sacha/Repos/iphone-tracker/processed-data/'
 all_files = list(Path(path).glob('*.csv'))
 
+
 dfs = []
 
 for filename in all_files:
@@ -30,7 +31,8 @@ generate_score(df_last_week, *scores)
 
 df_nlargest = df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']]
 
-app = Dash(__name__, update_title=None)
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+app = Dash(__name__, external_stylesheets=external_stylesheets, update_title=None)
 
 app.layout = html.Div([
     html.Div([
