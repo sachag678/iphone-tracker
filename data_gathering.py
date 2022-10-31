@@ -65,7 +65,7 @@ def generate_score(df, price_weight, bat_weight, gb_weight, sentiment_weight):
         r["type"]: r["price"] for r in df_min_price.to_dict(orient="records")
     }
 
-    df["score"] = df.apply(lambda x: score(x), axis=1)
+    df.loc[:, "score"] = df.apply(lambda x: score(x), axis=1)
 
 
 if __name__ == "__main__":

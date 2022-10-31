@@ -13,24 +13,6 @@ import flask
 
 scores = (0.5, 0.2, 0.2, 0.1)
 
-path = '/root/iphone-tracker/processed-data/'
-all_files = list(Path(path).glob('*.csv'))
-
-dfs = []
-
-for filename in all_files:
-    df = pd.read_csv(filename, header=0, index_col=None, parse_dates=['date'])
-    dfs.append(df)
-
-df = pd.concat(dfs, axis=0, ignore_index=True)
-
-df_last_week = df[df['date'] > (datetime.datetime.today() - datetime.timedelta(days=7))]
-df_last_week.drop(columns=['date'], inplace=True)
-df_last_week.drop_duplicates(inplace=True)
-generate_score(df_last_week, *scores)
-
-df_nlargest = df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']]
-
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = Dash(__name__, external_stylesheets=external_stylesheets, update_title=None)
@@ -40,14 +22,16 @@ app.layout = html.Div([
     html.Div([
         dcc.Graph(id='avg_price'),
         dcc.Graph(id='avg_price_relative_to_actual'),
-        html.Button('Refresh', id='refresh', n_clicks=0, style = dict(display='none')),
+        dcc.Interval(id='interval', interval=1 * 1000 * 60 * 60 * 24, n_intervals=0),
+        dcc.Store(id='df_store'),
+        dcc.Store(id='df_last_week_store'),
     ], style={'width': '49%', 'display': 'inline-block'}),
     html.Div([
         dcc.Graph(id='best_phone',
                   hoverData={'points': [{'customdata': ''}]}),
         dcc.Markdown('#### Breakdown of top 5 scoring phones'),
-        dash_table.DataTable(df_nlargest.to_dict('records'),
-                             [{"name": i, "id": i, 'presentation': 'markdown'} if i == 'link' else {"name": i, "id": i} for i in df_nlargest.columns],
+        dash_table.DataTable([],
+                             [{"name": i, "id": i, 'presentation': 'markdown'} if i == 'link' else {"name": i, "id": i} for i in ['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']],
                              id = 'best_scores_table'
                              ),
         html.Br(),
@@ -69,21 +53,54 @@ app.layout = html.Div([
 ])
 
 @app.callback(
+    Output('df_store', 'data'),
+    Input('interval', 'n_intervals')
+)
+def get_df(n_intervals):
+    print(f'interval: {n_intervals}')
+    path = 'processed-data/'
+    all_files = list(Path(path).glob('*.csv'))
+
+    dfs = []
+
+    for filename in all_files:
+        df = pd.read_csv(filename, header=0, index_col=None, parse_dates=['date'])
+        dfs.append(df)
+
+    df = pd.concat(dfs, axis=0, ignore_index=True)
+
+    return df.to_json(orient='split')
+
+@app.callback(
+    Output('df_last_week_store', 'data'),
+    Input('df_store', 'data'),
+)
+def get_df_last_week(json_data):
+    df = pd.read_json(json_data, orient='split')
+    df_last_week = df[df['date'] > (datetime.datetime.today() - datetime.timedelta(days=7))].reset_index()
+    df_last_week.drop(columns=['date'], inplace=True)
+    df_last_week.drop_duplicates(inplace=True)
+    return df_last_week.to_json(date_format='iso', orient='split')
+
+@app.callback(
     Output('best_scores_table', 'data'),
     Input('price_weight', 'value'),
     Input('bat_weight', 'value'),
     Input('gb_weight', 'value'),
-    Input('sentiment_weight', 'value')
+    Input('sentiment_weight', 'value'),
+    Input('df_last_week_store', 'data')
 )
-def update_data_table(price_weight, bat_weight, gb_weight, sentiment_weight):
+def update_data_table(price_weight, bat_weight, gb_weight, sentiment_weight, data):
+    df_last_week = pd.read_json(data, orient='split')
     generate_score(df_last_week, price_weight, bat_weight, gb_weight, sentiment_weight)
     return df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']].to_dict('records')
 
 @app.callback(
     Output('avg_price', 'figure'),
-    Input('refresh', 'n_clicks')
+    Input('df_store', 'data')
 )
-def update_avg_price(n_clicks):
+def update_avg_price(data):
+    df = pd.read_json(data, orient='split')
     dff = df.groupby(['date', 'type'])['price'].mean().reset_index().rename(columns = {'price': 'average_price'})
     fig = px.scatter(dff, x='date', y='average_price', color='type', title = 'Average Price vs Dates Per Iphone')
     fig.update_traces(mode='lines+markers')
@@ -91,10 +108,11 @@ def update_avg_price(n_clicks):
 
 @app.callback(
     Output('avg_price_relative_to_actual', 'figure'),
-    Input('refresh', 'n_clicks')
+    Input('df_store', 'data')
 )
-def update_avg_price_relative_to_actual(n_clicks):
+def update_avg_price_relative_to_actual(data):
     prices = {'iphone-11': 550.0, 'iphone-12': 849.0, 'iphone-12-mini': 625.0}
+    df = pd.read_json(data, orient='split')
     dff = df.groupby(['date', 'type'])['price'].mean().reset_index().rename(columns = {'price': 'average_price'})
     for k,v in prices.items():
         dff.loc[dff['type']==k, 'average_price'] = (abs(dff['average_price'] - v))/v
@@ -105,10 +123,15 @@ def update_avg_price_relative_to_actual(n_clicks):
 
 @app.callback(
     Output('best_phone', 'figure'),
-    Input('refresh', 'n_clicks'),
-    Input('best_scores_table', 'data')
+    Input('df_last_week_store', 'data'),
+    Input('price_weight', 'value'),
+    Input('bat_weight', 'value'),
+    Input('gb_weight', 'value'),
+    Input('sentiment_weight', 'value')
 )
-def update_best_phone(n_clicks, data):
+def update_best_phone(json_data, price_weight, bat_weight, gb_weight, sentiment_weight):
+    df_last_week = pd.read_json(json_data, orient='split')
+    generate_score(df_last_week, price_weight, bat_weight, gb_weight, sentiment_weight)
     dff = df_last_week.nlargest(20, 'score')
     return px.bar(dff, x=range(len(dff)), y='score', hover_data=['type', 'price', 'bat_health', 'sentiment', 'gb'], title='Top 20 scoring phones of last week')
 
