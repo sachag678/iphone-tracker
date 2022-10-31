@@ -9,12 +9,12 @@ from pathlib import Path
 from data_gathering import generate_score
 import datetime
 import json
+import flask
 
 scores = (0.5, 0.2, 0.2, 0.1)
 
-path = '/Users/sacha/Repos/iphone-tracker/processed-data/'
+path = '/root/iphone-tracker/processed-data/'
 all_files = list(Path(path).glob('*.csv'))
-
 
 dfs = []
 
@@ -32,7 +32,9 @@ generate_score(df_last_week, *scores)
 df_nlargest = df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']]
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
 app = Dash(__name__, external_stylesheets=external_stylesheets, update_title=None)
+server = app.server
 
 app.layout = html.Div([
     html.Div([
@@ -111,4 +113,4 @@ def update_best_phone(n_clicks, data):
     return px.bar(dff, x=range(len(dff)), y='score', hover_data=['type', 'price', 'bat_health', 'sentiment', 'gb'], title='Top 20 scoring phones of last week')
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='0.0.0.0', port=8080)

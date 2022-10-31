@@ -15,7 +15,7 @@ def process_data(keyword, today):
     @param <str> keyword
     @param <str> today's date in the format yy-mm-dd
     """
-    path = "/Users/sacha/Repos/iphone-tracker/data-lake/" + keyword + "/" + today + "/"
+    path = "data-lake/" + keyword + "/" + today + "/"
     all_files = list(Path(path).glob("*.html"))
 
     keys = ["price", "title", "distance", "description"]
