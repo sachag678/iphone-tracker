@@ -92,6 +92,8 @@ def get_df_last_week(json_data):
 )
 def update_data_table(price_weight, bat_weight, gb_weight, sentiment_weight, data):
     df_last_week = pd.read_json(data, orient='split')
+    df_last_week.iloc[:, 'bat_health'] = round(df_last_week['bat_health'], 2)
+    df_last_week.drop_duplicates(inplace=True)
     generate_score(df_last_week, price_weight, bat_weight, gb_weight, sentiment_weight)
     return df_last_week.nlargest(5, 'score')[['type', 'price', 'bat_health', 'sentiment', 'gb', 'link']].to_dict('records')
 
@@ -131,6 +133,8 @@ def update_avg_price_relative_to_actual(data):
 )
 def update_best_phone(json_data, price_weight, bat_weight, gb_weight, sentiment_weight):
     df_last_week = pd.read_json(json_data, orient='split')
+    df_last_week.iloc[:, 'bat_health'] = round(df_last_week['bat_health'], 2)
+    df_last_week.drop_duplicates(inplace=True)
     generate_score(df_last_week, price_weight, bat_weight, gb_weight, sentiment_weight)
     dff = df_last_week.nlargest(20, 'score')
     return px.bar(dff, x=range(len(dff)), y='score', hover_data=['type', 'price', 'bat_health', 'sentiment', 'gb'], title='Top 20 scoring phones of last week')
